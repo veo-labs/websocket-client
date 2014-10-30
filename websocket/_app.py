@@ -111,7 +111,7 @@ class WebSocketApp(object):
             self.sock.ping()
 
     def run_forever(self, sockopt=None, sslopt=None, ping_interval=0, ping_timeout=None,
-        http_proxy_host=None, http_proxy_port=None):
+        http_proxy_host=None, http_proxy_port=None, http_proxy_username=None, http_proxy_password=None):
         """
         run event loop for WebSocket framework.
         This loop is infinite loop and is alive during websocket is available.
@@ -123,6 +123,8 @@ class WebSocketApp(object):
         ping_timeout: timeout(second) if the pong message is not recieved.
         http_proxy_host: http proxy host name.
         http_proxy_port: http proxy port. If not set, set to 80.
+        http_proxy_username: http proxy username.
+        http_proxy_password: http proxy password.
         """
 
         if not ping_timeout or ping_timeout<=0:
@@ -142,6 +144,7 @@ class WebSocketApp(object):
             self.sock.settimeout(getdefaulttimeout())
             self.sock.connect(self.url, header=self.header, cookie=self.cookie,
                 http_proxy_host=http_proxy_host, http_proxy_port=http_proxy_port,
+                http_proxy_username=http_proxy_username, http_proxy_password=http_proxy_password,
                 subprotocols=self.subprotocols)
             self._callback(self.on_open)
 

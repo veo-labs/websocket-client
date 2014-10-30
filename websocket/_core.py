@@ -179,10 +179,17 @@ def _get_proxy_info(is_secure, **options):
 
     options:    "http_proxy_host" - http proxy host name.
                 "http_proxy_port" - http proxy port.
+                "http_proxy_username" - http proxy username.
+                "http_proxy_password" - http proxy password.
     """
     http_proxy_host = options.get("http_proxy_host", None)
     if http_proxy_host:
-        return http_proxy_host, options.get("http_proxy_port", 0)
+        return (
+            http_proxy_host,
+            options.get("http_proxy_port", 0),
+            options.get("http_proxy_username", None),
+            options.get("http_proxy_password", None)
+        )
 
     try_env_keys = ["http_proxy"]
     if is_secure:
@@ -192,9 +199,9 @@ def _get_proxy_info(is_secure, **options):
         env_value = os.environ.get(env_key, None)
         if env_value:
             proxy = urlparse(env_value)
-            return proxy.hostname, proxy.port
+            return proxy.hostname, proxy.port, proxy.username, proxy.password
 
-    return None, 0
+    return None, 0, None, None
 
 
 def create_connection(url, timeout=None, **options):
@@ -220,6 +227,8 @@ def create_connection(url, timeout=None, **options):
              "cookie" -> cookie value.
              "http_proxy_host" - http proxy host name.
              "http_proxy_port" - http proxy port. If not set, set to 80.
+             "http_proxy_username" - http proxy username.
+             "http_proxy_password" - http proxy password.
              "enable_multithread" -> enable lock for multithread.
              "sockopt" -> socket options
              "sslopt" -> ssl option
@@ -428,12 +437,14 @@ class WebSocket(object):
                  "cookie" -> cookie value.
                  "http_proxy_host" - http proxy host name.
                  "http_proxy_port" - http proxy port. If not set, set to 80.
+                 "http_proxy_username" - http proxy username.
+                 "http_proxy_password" - http proxy password.
                  "subprotocols" - array of available sub protocols. default is None.
 
         """
 
         hostname, port, resource, is_secure = _parse_url(url)
-        proxy_host, proxy_port = _get_proxy_info(is_secure, **options)
+        proxy_host, proxy_port, proxy_username, proxy_password = _get_proxy_info(is_secure, **options)
         if not proxy_host:
             addrinfo_list = socket.getaddrinfo(hostname, port, 0, 0, socket.SOL_TCP)
         else:
@@ -469,7 +480,7 @@ class WebSocket(object):
             raise err
 
         if proxy_host:
-            self._tunnel(hostname, port)
+            self._tunnel(hostname, port, proxy_username, proxy_password)
 
         if is_secure:
             if HAVE_SSL:
@@ -489,9 +500,14 @@ class WebSocket(object):
 
         self._handshake(hostname, port, resource, **options)
 
-    def _tunnel(self, host, port):
+    def _tunnel(self, host, port, username, password):
         logger.debug("Connecting proxy...")
         connect_header = "CONNECT %s:%d HTTP/1.0\r\n" % (host, port)
+        
+        if username:
+            b64_auth = base64encode("%s:%s" % (username, password or '')).strip()
+            connect_header += "Proxy-Authorization: Basic %s\r\n" % b64_auth
+        
         connect_header += "\r\n"
         _dump("request header", connect_header)
 
